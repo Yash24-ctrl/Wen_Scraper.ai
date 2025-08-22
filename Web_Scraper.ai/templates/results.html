@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="results">
+	<h2>Scrape Results</h2>
+	<div class="actions">
+		<a class="btn" href="{{ url_for('download_json') }}">Download JSON</a>
+		<a class="btn" href="{{ url_for('download_csv') }}">Download CSV (ZIP)</a>
+	</div>
+
+	<div class="card">
+		<h3>Page</h3>
+		<p><strong>Title:</strong> {{ results.title }}</p>
+		<p><strong>URL:</strong> <a href="{{ results.url }}" target="_blank">{{ results.url }}</a></p>
+		{% if results.meta.description %}
+			<p><strong>Description:</strong> {{ results.meta.description }}</p>
+		{% endif %}
+	</div>
+
+	<div class="grid">
+		<div class="card">
+			<h3>Contact Info</h3>
+			<p><strong>Emails</strong></p>
+			<ul>
+				{% for email in results.emails %}<li>{{ email }}</li>{% else %}<li>None found</li>{% endfor %}
+			</ul>
+			<p><strong>Phones</strong></p>
+			<ul>
+				{% for phone in results.phones %}<li>{{ phone }}</li>{% else %}<li>None found</li>{% endfor %}
+			</ul>
+		</div>
+
+		<div class="card">
+			<h3>Social Links</h3>
+			{% for platform, links in (results.social_links or {}).items() %}
+				<p><strong>{{ platform|capitalize }}</strong></p>
+				<ul>
+					{% for link in links %}<li><a href="{{ link }}" target="_blank">{{ link }}</a></li>{% endfor %}
+				</ul>
+			{% else %}
+				<p>No social links found.</p>
+			{% endfor %}
+		</div>
+	</div>
+
+	<div class="card">
+		<h3>Links (first 50)</h3>
+		<ol>
+			{% for link in results.links[:50] %}
+				<li><a href="{{ link.href }}" target="_blank">{{ link.text }}</a></li>
+			{% else %}
+				<li>No links found.</li>
+			{% endfor %}
+		</ol>
+	</div>
+
+	<div class="card">
+		<h3>Text Preview</h3>
+		<pre class="text-preview">{{ text_preview }}</pre>
+	</div>
+
+	{% if results.tables %}
+		<h3>Tables</h3>
+		{% for table in results.tables %}
+			<div class="card table-card">
+				<table>
+					<thead>
+						<tr>
+							{% for header in table[0].keys() %}
+								<th>{{ header }}</th>
+							{% endfor %}
+						</tr>
+					</thead>
+					<tbody>
+						{% for row in table[:10] %}
+							<tr>
+								{% for value in row.values() %}
+									<td>{{ value }}</td>
+								{% endfor %}
+							</tr>
+						{% endfor %}
+					</tbody>
+				</table>
+				<p class="hint">Showing first 10 rows. Download CSV to get all rows.</p>
+			</div>
+		{% endfor %}
+	{% else %}
+		<p>No tables found.</p>
+	{% endif %}
+</section>
+{% endblock %}
