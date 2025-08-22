@@ -1,6 +1,7 @@
 import re
+import time
 import requests
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 from typing import Dict, Any, List
 
@@ -24,13 +25,34 @@ SOCIAL_DOMAINS = {
 }
 
 
+def normalize_url(url: str) -> str:
+	if not url:
+		raise ValueError("Empty URL")
+	parsed = urlparse(url)
+	if not parsed.scheme:
+		url = "https://" + url
+	return url
+
+
+def _http_get_with_retries(url: str, headers: dict, timeout: int = 20, retries: int = 3) -> requests.Response:
+	last_exc = None
+	for attempt in range(retries):
+		try:
+			resp = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True)
+			resp.raise_for_status()
+			return resp
+		except Exception as exc:
+			last_exc = exc
+			time.sleep(0.8 * (attempt + 1))
+	if last_exc:
+		raise last_exc
+
+
 def scrape_url(url: str) -> Dict[str, Any]:
-	resp = requests.get(url, headers=DEFAULT_HEADERS, timeout=20)
-	resp.raise_for_status()
+	resp = _http_get_with_retries(url, headers=DEFAULT_HEADERS, timeout=25, retries=3)
 
 	content_type = resp.headers.get('Content-Type', '')
 	if 'text/html' not in content_type and 'application/xhtml+xml' not in content_type:
-		# Non-HTML: return minimal info
 		return {
 			"url": url,
 			"title": url,
@@ -44,7 +66,6 @@ def scrape_url(url: str) -> Dict[str, Any]:
 
 	soup = BeautifulSoup(resp.text, 'html.parser')
 
-	# Title and meta
 	title_tag = soup.find('title')
 	title = title_tag.get_text(strip=True) if title_tag else url
 	meta = {
@@ -52,7 +73,6 @@ def scrape_url(url: str) -> Dict[str, Any]:
 		"keywords": _get_meta(soup, 'keywords'),
 	}
 
-	# Extract text
 	for tag in soup(['script', 'style', 'noscript']):
 		tag.decompose()
 	text = soup.get_text(separator=' ', strip=True)
@@ -60,11 +80,9 @@ def scrape_url(url: str) -> Dict[str, Any]:
 	if len(text) > 200000:
 		text = text[:200000]
 
-	# Emails and phones
 	emails = sorted(set(EMAIL_REGEX.findall(text)))
 	phones = sorted(set(PHONE_REGEX.findall(text)))
 
-	# Links
 	links = []
 	for a in soup.find_all('a', href=True):
 		href = a['href'].strip()
@@ -72,14 +90,12 @@ def scrape_url(url: str) -> Dict[str, Any]:
 		text_content = a.get_text(strip=True) or absolute
 		links.append({"text": text_content, "href": absolute})
 
-	# Social links grouping
 	social_links = {}
 	for platform, domains in SOCIAL_DOMAINS.items():
 		platform_links = [l["href"] for l in links if any(d in l["href"] for d in domains)]
 		if platform_links:
 			social_links[platform] = sorted(set(platform_links))
 
-	# Tables
 	tables = _extract_tables(soup, base_url=url)
 
 	return {
@@ -103,14 +119,8 @@ def _get_meta(soup: BeautifulSoup, name: str) -> str:
 
 
 def _extract_tables(soup: BeautifulSoup, base_url: str) -> List[Dict[str, Any]]:
-	"""
-	Convert each HTML table into a list of dict rows.
-	- Uses thead/th or first row as headers
-	- Fills missing cells with empty strings
-	"""
 	tables_data: List[Dict[str, Any]] = []
 	for table in soup.find_all('table'):
-		# Find headers
 		headers = []
 		thead = table.find('thead')
 		if thead:
@@ -122,14 +132,12 @@ def _extract_tables(soup: BeautifulSoup, base_url: str) -> List[Dict[str, Any]]:
 				cells = first_row.find_all(['th', 'td'])
 				headers = [c.get_text(strip=True) or f"col_{i+1}" for i, c in enumerate(cells)]
 
-		# Gather rows
 		rows_data = []
 		for tr in table.find_all('tr'):
 			cells = tr.find_all(['td'])
 			if not cells:
 				continue
 			values = [c.get_text(strip=True) for c in cells]
-			# Normalize row length
 			while len(values) < len(headers):
 				values.append('')
 			while len(values) > len(headers):

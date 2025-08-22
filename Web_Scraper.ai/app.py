@@ -9,7 +9,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, Response
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from scraper import scrape_url
+from scraper import scrape_url, normalize_url
 
 
 DATABASE_PATH = os.path.join(os.path.dirname(__file__), 'users.db')
@@ -40,11 +40,15 @@ def create_app() -> Flask:
 					flash('Username and password are required.', 'error')
 					return redirect(url_for('login'))
 				try:
-					create_user(username=username, password=password)
-					flash('Registration successful. Please log in.', 'success')
+					user = create_user(username=username, password=password)
+					# Auto-login after successful registration
+					session['user_id'] = user['id']
+					session['username'] = user['username']
+					flash('Registration successful. Welcome!', 'success')
+					return redirect(url_for('scrape'))
 				except sqlite3.IntegrityError:
 					flash('Username already exists. Choose another.', 'error')
-				return redirect(url_for('login'))
+					return redirect(url_for('login'))
 
 			# login flow
 			user = get_user_by_username(username)
@@ -76,7 +80,8 @@ def create_app() -> Flask:
 				flash('Please paste a valid URL.', 'error')
 				return redirect(url_for('scrape'))
 			try:
-				results = scrape_url(url)
+				normalized = normalize_url(url)
+				results = scrape_url(normalized)
 				results['scraped_at'] = datetime.utcnow().isoformat() + 'Z'
 				session['last_results'] = results
 				return redirect(url_for('results'))
@@ -178,14 +183,15 @@ def ensure_db() -> None:
 		conn.commit()
 
 
-def create_user(username: str, password: str) -> None:
+def create_user(username: str, password: str) -> dict:
 	password_hash = generate_password_hash(password)
 	with closing(sqlite3.connect(DATABASE_PATH)) as conn:
-		conn.execute(
+		cur = conn.execute(
 			"INSERT INTO users (username, password_hash) VALUES (?, ?)",
 			(username, password_hash),
 		)
 		conn.commit()
+		return {"id": cur.lastrowid, "username": username, "password_hash": password_hash}
 
 
 def get_user_by_username(username: str):

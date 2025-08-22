@@ -5,21 +5,35 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>{{ app_name }} — By {{ author_name }}</title>
 	<link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 	<header class="site-header">
-		<div class="container">
-			<h1>{{ app_name }}</h1>
-			<p class="subtitle">By {{ author_name }}</p>
+		<div class="container header-bar">
+			<div class="brand">
+				<div class="logo">WS</div>
+				<div>
+					<h1>{{ app_name }}</h1>
+					<p class="subtitle">By {{ author_name }}</p>
+				</div>
+			</div>
 			<nav>
 				{% if session.get('user_id') %}
 					<a href="{{ url_for('scrape') }}">Paste URL</a>
 					<a href="{{ url_for('results') }}">Results</a>
-					<a href="{{ url_for('logout') }}">Logout</a>
+					<a class="btn btn-ghost" href="{{ url_for('logout') }}">Logout</a>
 				{% else %}
-					<a href="{{ url_for('login') }}">Login</a>
+					<a class="btn btn-primary" href="{{ url_for('login') }}">Login</a>
 				{% endif %}
 			</nav>
+		</div>
+		<div class="hero">
+			<div class="container">
+				<h2>Scrape any public website for contacts, links, tables, and text</h2>
+				<p>Paste a URL and download results as JSON or CSV. Secure login included.</p>
+			</div>
 		</div>
 	</header>
 
@@ -38,8 +52,14 @@
 	</main>
 
 	<footer class="site-footer">
-		<div class="container">
-			<p>&copy; {{ 2025 }} {{ author_name }} — {{ app_name }}</p>
+		<div class="container footer-grid">
+			<div>
+				<p class="muted">&copy; {{ 2025 }} {{ author_name }}</p>
+				<p class="muted">{{ app_name }}</p>
+			</div>
+			<div class="right">
+				<p class="muted">Built with Flask</p>
+			</div>
 		</div>
 	</footer>
 </body>
