@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="url-input">
+	<h2>Paste a URL to scrape</h2>
+	<form method="post" action="{{ url_for('scrape') }}" class="url-form">
+		<input name="url" placeholder="https://example.com" required>
+		<button type="submit">Scrape</button>
+	</form>
+	<p class="hint">We will extract contact info, links, tables, and text.</p>
+</section>
+{% endblock %}
